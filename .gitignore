@@ -1,3 +1,5 @@
+# my files
+justfile
 # Freqtrade rules
 config*.json
 *.sqlite
