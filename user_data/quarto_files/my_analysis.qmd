@@ -1,0 +1,209 @@
+## Generate signals
+
+```{python} 
+# Imports
+from freqtrade.configuration import Configuration
+from freqtrade.data.dataprovider import DataProvider
+from freqtrade.data.history import load_pair_history
+from freqtrade.enums import CandleType
+from freqtrade.resolvers import StrategyResolver
+import plotly.graph_objects as go
+
+
+def show(fig):
+    fig.update_layout(dragmode="pan")
+    fig.show(config={"scrollZoom": True})
+
+
+print("Loading done")
+```
+```{python} 
+# Setup
+root_path = "/home/gustav/projects/freqtrade_dir"
+
+config = Configuration.from_files([f"{root_path}/user_data/config.json"])
+config["timeframe"] = "1d"
+config["strategy"] = "SimpleSMA"
+config["dataformat_ohlcv"] = "feather"
+pair = "BTC/USDT"
+```
+
+```{python} 
+# Load candles
+candles = load_pair_history(
+    datadir=config["datadir"],
+    timeframe=config["timeframe"],
+    pair=pair,
+    data_format=config["dataformat_ohlcv"],
+    candle_type=CandleType.SPOT,
+)
+```
+
+```{python} 
+# Load strategy
+strategy = StrategyResolver.load_strategy(config)
+strategy.dp = DataProvider(config, None, None)
+strategy.ft_bot_start()
+
+# Generate buy/sell signals using strategy
+# NOTE: can have several signals in a row, only limited by max_open_trades
+df = strategy.analyze_ticker(candles, {"pair": pair})
+```
+
+```{python} 
+# Report results
+data = df.set_index("date", drop=False)
+data.tail()
+```
+
+```{python} 
+# Plot entries/exits
+fig = go.Figure()
+
+fig.add_trace(
+    go.Scatter(
+        x=data["date"],
+        y=data["close"],
+        mode="lines",
+        name="Close",
+        line=dict(color="steelblue"),
+    )
+)
+
+fig.add_trace(
+    go.Scatter(
+        x=data["date"],
+        y=data["buy_sma_40"],
+        mode="lines",
+        name="Close",
+        line=dict(color="steelblue"),
+    )
+)
+
+entries = df[df["enter_long"] == 1]
+fig.add_trace(
+    go.Scatter(
+        x=entries["date"],
+        y=entries["close"],
+        mode="markers",
+        name="Enter Long",
+        marker=dict(symbol="triangle-up", size=10, color="lime"),
+    )
+)
+
+exits = df[df["exit_long"] == 1]
+fig.add_trace(
+    go.Scatter(
+        x=exits["date"],
+        y=exits["close"],
+        mode="markers",
+        name="Exit Long",
+        marker=dict(symbol="triangle-down", size=10, color="red"),
+    )
+)
+
+fig.update_layout(
+    title="Close Price with Signals", xaxis_title="Date", yaxis_title="Price"
+)
+fig.show()
+```
+
+## Analyse backup
+```{python} 
+# Imports
+from freqtrade.data.btanalysis import load_backtest_data, load_backtest_stats
+from freqtrade.optimize.optimize_reports import show_backtest_results
+import pandas as pd
+import plotly.express as px
+```
+
+```{python} 
+backtest_dir = "/home/gustav/projects/freqtrade_dir/user_data/backtest_results"
+```
+
+```{python} 
+# Load backtest stats
+stats = load_backtest_stats(backtest_dir)
+
+strategy = "SimpleSMA"
+strategy_stats = stats["strategy"][strategy]
+
+print(strategy_stats["results_per_pair"])
+print(strategy_stats["pairlist"])
+print(strategy_stats["market_change"])
+print(strategy_stats["max_drawdown_abs"])
+print(strategy_stats["drawdown_start"])
+print(strategy_stats["drawdown_end"])
+
+print(stats["strategy_comparison"])
+
+show_backtest_results(config, stats)
+
+df = pd.DataFrame(columns=["dates", "equity"], data=strategy_stats["daily_profit"])
+df["equity_daily"] = df["equity"].cumsum()
+
+
+fig = px.line(df, x="dates", y="equity_daily")
+fig.show()
+```
+
+```{python} 
+# Load backtest trades
+
+trades = load_backtest_data(backtest_dir)
+```
+
+```{python} 
+# Plot trades
+
+import pandas as pd
+import plotly.express as px
+
+
+from freqtrade.configuration import Configuration
+from freqtrade.data.btanalysis import load_backtest_stats
+```
+```{python} 
+# Plot results
+from freqtrade.plot.plotting import generate_candlestick_graph
+
+# Filter trades to one pair
+trades_red = trades.loc[trades["pair"] == pair]
+
+data_red = data["2020-01-01":"2026-01-01"]
+# Generate candlestick graph
+graph = generate_candlestick_graph(
+    pair=pair,
+    data=data_red,
+    trades=trades_red,
+    indicators1=["sma20", "ema50", "ema55", "buy_sma_40"],
+    indicators2=["rsi", "macd", "macdsignal", "macdhist"],
+)
+show(graph)
+```
+
+```{python} 
+# Create profit plot
+from freqtrade.plot.plotting import generate_profit_graph
+
+graph2 = generate_profit_graph(
+    pairs=[pair],  # type: ignore
+    data={pair: data_red},
+    trades=trades_red,
+    timeframe=config["timeframe"],
+    stake_currency=config["stake_currency"],
+    starting_balance=config["dry_run_wallet"],
+)
+
+show(graph2)
+```
+
+
+```{python} 
+# Create html file for profit plot
+from freqtrade.plot.plotting import plot_profit
+
+config["dataformat_ohlcv"] = "feather"
+config["trade_source"] = "file"
+foo = plot_profit(config)
+```

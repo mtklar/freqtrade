@@ -1,0 +1,73 @@
+```{python} 
+from freqtrade.configuration import Configuration
+from pathlib import Path
+import pandas as pd
+from freqtrade.optimize.hyperopt_tools import HyperoptTools
+from pathlib import Path
+
+hyperopt_file = "strategy_MyStrategy2_2026-03-22_19-39-23.fthypt"
+
+user_data_path = Path("/home/gustav/projects/freqtrade_dir/user_data")
+hyperopt_path = user_data_path / "hyperopt_results" / hyperopt_file
+
+config = Configuration.from_files([user_data_path / "config.json"])  # type: ignore
+
+epochs = HyperoptTools.load_filtered_results(hyperopt_path, config)[0]
+
+EPOCH_DROP = {
+    "params_details",
+    "params_not_optimized",
+    "results_explanation",
+    "results_metrics",
+    "params_dict",
+}
+METRICS_DROP = {
+    "trades",
+    "best_pair",
+    "worst_pair",
+    "results_per_pair",
+    "results_per_enter_tag",
+    "exit_reason_summary",
+    "mix_tag_stats",
+    "left_open_trades",
+    "daily_profit",
+    "locks",
+}
+
+frames = []
+for epoch in epochs:
+    params_dict = epoch["params_dict"]
+    results_metrics = epoch["results_metrics"]
+
+    data = {
+        **{k: v for k, v in params_dict.items()},
+        **{k: v for k, v in epoch.items() if k not in EPOCH_DROP},
+        **{k: v for k, v in results_metrics.items() if k not in METRICS_DROP},
+    }
+    frames.append(data)
+
+
+df = pd.json_normalize(frames)
+df["wl_ratio"] = df["wins"] / (df["wins"] + df["draws"] + df["losses"])
+
+first_cols = [
+    "is_best",
+    "current_epoch",
+    "total_trades",
+    "wins",
+    "draws",
+    "losses",
+    "wl_ratio",
+    "profit_mean",
+    "profit_total_abs",
+    "profit_total",
+    "holding_avg",
+    "loss",
+    "max_drawdown_abs",
+    "max_drawdown_account",
+]
+cols = first_cols + df.columns.difference(first_cols).tolist()
+
+df = df[cols]
+```
+

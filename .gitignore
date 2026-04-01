@@ -1,5 +1,3 @@
-# my files
-justfile
 # Freqtrade rules
 config*.json
 *.sqlite
@@ -118,3 +116,10 @@ target/
 !config_examples/config_freqai.example.json
 
 docker-compose-*.yml
+
+# my files
+!quarto_files
+!strategies
+.quarto/
+.quarto_ipynb
+
