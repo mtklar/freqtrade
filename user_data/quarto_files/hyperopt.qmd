@@ -25,9 +25,10 @@ if run_hyperopt:
     hyp = Hyperopt(config)
     hyp.start()
 
-    hyperopt_file = hyp.__dict__["results_file"].name
-    hyperopt_file = "strategy_MyStrategy2_2026-03-22_19-39-23.fthypt"
+    hyperopt_file = hyp.results_file.name
+```
 
+```{python} 
 hyperopt_path = user_data_path / "hyperopt_results" / hyperopt_file
 config = Configuration.from_files([user_data_path / "config.json"])  # type: ignore
 
