@@ -1,15 +1,34 @@
 ```{python} 
 from freqtrade.configuration import Configuration
-from pathlib import Path
-import pandas as pd
+from freqtrade.enums import RunMode
+from freqtrade.optimize.hyperopt.hyperopt import Hyperopt
 from freqtrade.optimize.hyperopt_tools import HyperoptTools
 from pathlib import Path
+import pandas as pd
 
+run_hyperopt = False
 hyperopt_file = "strategy_MyStrategy2_2026-03-22_19-39-23.fthypt"
 
 user_data_path = Path("/home/gustav/projects/freqtrade_dir/user_data")
-hyperopt_path = user_data_path / "hyperopt_results" / hyperopt_file
+config = Configuration.from_files([user_data_path / "config.json"])  # type: ignore
 
+if run_hyperopt:
+    config["spaces"] = ["buy"]
+    config["strategy"] = "FindEdge"
+    config["hyperopt_loss"] = "OnlyProfitHyperOptLoss"
+    config["epochs"] = 20
+    config["hyperopt_min_trades"] = 2
+    config["hyperopt_random_state"] = 42
+    config["print_all"] = True
+    config["runmode"] = RunMode.HYPEROPT
+
+    hyp = Hyperopt(config)
+    hyp.start()
+
+    hyperopt_file = hyp.__dict__["results_file"].name
+    hyperopt_file = "strategy_MyStrategy2_2026-03-22_19-39-23.fthypt"
+
+hyperopt_path = user_data_path / "hyperopt_results" / hyperopt_file
 config = Configuration.from_files([user_data_path / "config.json"])  # type: ignore
 
 epochs = HyperoptTools.load_filtered_results(hyperopt_path, config)[0]
